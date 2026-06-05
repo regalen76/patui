@@ -3,14 +3,21 @@ use std::{error::Error, io, process::Command};
 use ratatui::{
     Terminal,
     crossterm::{
+        cursor,
         event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
         execute,
-        terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+        terminal::{
+            Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode,
+            enable_raw_mode,
+        },
     },
-    prelude::{Backend, CrosstermBackend},
+    prelude::{Backend, CrosstermBackend, Rect},
 };
 
-use crate::{app::App, ui::ui};
+use crate::{
+    app::{App, LoginPopup},
+    ui::ui,
+};
 
 mod app;
 mod pangolin_accounts;
@@ -61,6 +68,10 @@ where
             if key.kind == KeyEventKind::Press {
                 if key.code == KeyCode::Char('c') && key.modifiers == KeyModifiers::CONTROL {
                     return Ok(true);
+                }
+
+                if handle_login_popup_key(terminal, app, key.code)? {
+                    continue;
                 }
 
                 if app.show_suggestions {
@@ -137,6 +148,8 @@ where
                             return Ok(true);
                         } else if input == "/refetch" {
                             refresh_all(app);
+                        } else if input == "/login" {
+                            app.login_popup = LoginPopup::Hosting { selected: 0 };
                         } else if let Some(host) = input.strip_prefix("/login ") {
                             run_pangolin_login(terminal, app, host.trim())?;
                         } else if input == "/select-account" {
@@ -151,6 +164,61 @@ where
             }
         }
     }
+}
+
+fn handle_login_popup_key<B>(
+    terminal: &mut Terminal<B>,
+    app: &mut App,
+    code: KeyCode,
+) -> io::Result<bool>
+where
+    B: Backend + io::Write,
+    io::Error: From<B::Error>,
+{
+    let mut login_host = None;
+
+    match &mut app.login_popup {
+        LoginPopup::Hidden => return Ok(false),
+        LoginPopup::Hosting { selected } => match code {
+            KeyCode::Esc => app.login_popup = LoginPopup::Hidden,
+            KeyCode::Up | KeyCode::Char('k') => *selected = 0,
+            KeyCode::Down | KeyCode::Char('j') => *selected = 1,
+            KeyCode::Enter => {
+                if *selected == 0 {
+                    app.login_popup = LoginPopup::Hidden;
+                    login_host = Some(String::from("https://app.pangolin.net"));
+                } else {
+                    app.login_popup = LoginPopup::SelfHosted {
+                        host: String::new(),
+                    };
+                }
+            }
+            _ => {}
+        },
+        LoginPopup::SelfHosted { host } => match code {
+            KeyCode::Esc => app.login_popup = LoginPopup::Hidden,
+            KeyCode::Char(value) => host.push(value),
+            KeyCode::Backspace => {
+                host.pop();
+            }
+            KeyCode::Enter => {
+                let input_host = host.trim().to_string();
+                if input_host.is_empty() {
+                    app.status = String::from("Enter self-hosted Pangolin host URL");
+                } else {
+                    app.login_popup = LoginPopup::Hidden;
+                    login_host = Some(input_host);
+                }
+            }
+            _ => {}
+        },
+    }
+
+    if let Some(host) = login_host {
+        run_pangolin_login(terminal, app, &host)?;
+    }
+
+    Ok(true)
 }
 
 fn refresh_all(app: &mut App) {
@@ -189,8 +257,13 @@ where
     execute!(
         terminal.backend_mut(),
         EnterAlternateScreen,
-        event::EnableMouseCapture
+        event::EnableMouseCapture,
+        Clear(ClearType::All),
+        cursor::MoveTo(0, 0)
     )?;
+    terminal.clear()?;
+    terminal.resize(Rect::new(0, 0, 0, 0))?;
+    terminal.draw(|f| ui(f, app))?;
 
     match login_status {
         Ok(status) if status.success() => {

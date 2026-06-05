@@ -3,10 +3,10 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
+    widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap},
 };
 
-use crate::app::App;
+use crate::app::{App, LoginPopup};
 
 pub fn ui(f: &mut Frame, app: &App) {
     let area = f.area();
@@ -71,7 +71,7 @@ pub fn ui(f: &mut Frame, app: &App) {
 
     let output_items: Vec<ListItem> = if app.accounts.is_empty() {
         vec![ListItem::new(Line::from(Span::styled(
-            " no Pangolin accounts found · use /login https://your-instance.example.com",
+            " no Pangolin accounts found · use /login",
             Style::default().fg(Color::DarkGray),
         )))]
     } else {
@@ -174,11 +174,97 @@ pub fn ui(f: &mut Frame, app: &App) {
     }
 
     let helper = Paragraph::new(format!(
-        "j/k select · r refetch · /login <host> · /select-account · Ctrl-c quit · {}",
+        "j/k select · r refetch · /login · /select-account · Ctrl-c quit · {}",
         app.status
     ))
     .block(Block::default().borders(Borders::ALL));
     f.render_widget(helper, chunks[4]);
+
+    render_login_popup(f, app, area);
+}
+
+fn render_login_popup(f: &mut Frame, app: &App, area: Rect) {
+    match &app.login_popup {
+        LoginPopup::Hidden => {}
+        LoginPopup::Hosting { selected } => {
+            let popup = centered_rect(area, 62, 8);
+            f.render_widget(Clear, popup);
+
+            let items = [
+                ("Pangolin Cloud", "app.pangolin.net"),
+                ("Self Hosted", "enter your Pangolin host URL"),
+            ]
+            .into_iter()
+            .enumerate()
+            .map(|(index, (label, detail))| {
+                let style = if *selected == index {
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default().fg(Color::White)
+                };
+                ListItem::new(Line::from(vec![
+                    Span::styled(format!(" {:<18}", label), style),
+                    Span::styled(detail, Style::default().fg(Color::DarkGray)),
+                ]))
+            })
+            .collect::<Vec<_>>();
+
+            let list = List::new(items)
+                .block(
+                    Block::default()
+                        .title_top(Line::from("pangolin login").centered())
+                        .title_bottom(
+                            Line::from("Enter choose · Esc cancel · j/k or ↑/↓ move").centered(),
+                        )
+                        .borders(Borders::ALL),
+                )
+                .highlight_style(
+                    Style::default()
+                        .bg(Color::Rgb(0, 40, 50))
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                );
+            let mut state = ListState::default();
+            state.select(Some(*selected));
+            f.render_stateful_widget(list, popup, &mut state);
+        }
+        LoginPopup::SelfHosted { host } => {
+            let popup = centered_rect(area, 62, 7);
+            f.render_widget(Clear, popup);
+
+            let content = vec![
+                Line::from(""),
+                Line::from(vec![
+                    Span::styled(" Host URL ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(host.clone(), Style::default().fg(Color::White)),
+                ]),
+                Line::from(""),
+            ];
+            let paragraph = Paragraph::new(content).block(
+                Block::default()
+                    .title_top(Line::from("self-hosted pangolin login").centered())
+                    .title_bottom(Line::from("Enter login · Esc cancel").centered())
+                    .borders(Borders::ALL),
+            );
+            f.render_widget(paragraph, popup);
+            f.set_cursor_position((popup.x + 11 + host.len() as u16, popup.y + 2));
+        }
+    }
+}
+
+fn centered_rect(area: Rect, width_percent: u16, height: u16) -> Rect {
+    let width = area.width.saturating_mul(width_percent).saturating_div(100);
+    let x = area.x + area.width.saturating_sub(width) / 2;
+    let y = area.y + area.height.saturating_sub(height) / 2;
+
+    Rect {
+        x,
+        y,
+        width,
+        height: height.min(area.height),
+    }
 }
 
 fn status_color(status: &str) -> Color {

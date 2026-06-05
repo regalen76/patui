@@ -16,7 +16,14 @@ pub struct App {
     pub suggestions: Vec<(&'static str, &'static str)>,
     pub suggestion_index: Option<usize>,
     pub show_suggestions: bool,
+    pub login_popup: LoginPopup,
     pub status: String,
+}
+
+pub enum LoginPopup {
+    Hidden,
+    Hosting { selected: usize },
+    SelfHosted { host: String },
 }
 
 impl App {
@@ -33,13 +40,14 @@ impl App {
             suggestions: vec![
                 ("/quit", "exit the application"),
                 ("/refetch", "refresh Pangolin statuses and accounts"),
-                ("/login", "login to self-hosted Pangolin host"),
+                ("/login", "open Pangolin login chooser"),
                 ("/select-account", "select highlighted Pangolin account"),
                 ("/help", "show help"),
                 ("/clear", "clear output"),
             ],
             suggestion_index: None,
             show_suggestions: false,
+            login_popup: LoginPopup::Hidden,
             status: String::from("Pangolin CLI required"),
         }
     }
