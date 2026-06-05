@@ -76,10 +76,7 @@ where
 
                 if app.show_suggestions {
                     match key.code {
-                        KeyCode::Down | KeyCode::Char('j') | KeyCode::Char('n')
-                            if key.modifiers == KeyModifiers::NONE
-                                || key.modifiers == KeyModifiers::CONTROL =>
-                        {
+                        KeyCode::Down if key.modifiers == KeyModifiers::NONE => {
                             let len = app.filtered_suggestions().len();
                             if len > 0 {
                                 app.suggestion_index =
@@ -87,10 +84,25 @@ where
                             }
                             continue;
                         }
-                        KeyCode::Up | KeyCode::Char('k') | KeyCode::Char('p')
-                            if key.modifiers == KeyModifiers::NONE
-                                || key.modifiers == KeyModifiers::CONTROL =>
-                        {
+                        KeyCode::Char('n') if key.modifiers == KeyModifiers::CONTROL => {
+                            let len = app.filtered_suggestions().len();
+                            if len > 0 {
+                                app.suggestion_index =
+                                    Some(app.suggestion_index.map_or(0, |i| (i + 1) % len));
+                            }
+                            continue;
+                        }
+                        KeyCode::Up if key.modifiers == KeyModifiers::NONE => {
+                            let len = app.filtered_suggestions().len();
+                            if len > 0 {
+                                app.suggestion_index = Some(
+                                    app.suggestion_index
+                                        .map_or(0, |i| if i == 0 { len - 1 } else { i - 1 }),
+                                );
+                            }
+                            continue;
+                        }
+                        KeyCode::Char('p') if key.modifiers == KeyModifiers::CONTROL => {
                             let len = app.filtered_suggestions().len();
                             if len > 0 {
                                 app.suggestion_index = Some(
@@ -194,6 +206,10 @@ where
         app.login_popup = LoginPopup::Hosting { selected: 0 };
     } else if input == "/logout" {
         run_pangolin_logout(app);
+    } else if input == "/up" {
+        run_pangolin_service(terminal, app, "up")?;
+    } else if input == "/down" {
+        run_pangolin_service(terminal, app, "down")?;
     } else if let Some(host) = input.strip_prefix("/login ") {
         run_pangolin_login(terminal, app, host.trim())?;
     }
@@ -292,6 +308,25 @@ where
 
     let login_status = Command::new("pangolin").args(["login", host]).status();
 
+    restore_tui(terminal, app)?;
+
+    match login_status {
+        Ok(status) if status.success() => {
+            app.status = String::from("Pangolin login completed");
+            refresh_all(app);
+        }
+        Ok(status) => app.status = format!("Pangolin login failed: {status}"),
+        Err(err) => app.status = format!("Pangolin login unavailable: {err}"),
+    }
+
+    Ok(())
+}
+
+fn restore_tui<B>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<()>
+where
+    B: Backend + io::Write,
+    io::Error: From<B::Error>,
+{
     enable_raw_mode()?;
     execute!(
         terminal.backend_mut(),
@@ -303,15 +338,6 @@ where
     terminal.clear()?;
     terminal.resize(Rect::new(0, 0, 0, 0))?;
     terminal.draw(|f| ui(f, app))?;
-
-    match login_status {
-        Ok(status) if status.success() => {
-            app.status = String::from("Pangolin login completed");
-            refresh_all(app);
-        }
-        Ok(status) => app.status = format!("Pangolin login failed: {status}"),
-        Err(err) => app.status = format!("Pangolin login unavailable: {err}"),
-    }
 
     Ok(())
 }
@@ -333,6 +359,39 @@ fn run_pangolin_logout(app: &mut App) {
         }
         Err(err) => app.status = format!("Pangolin logout unavailable: {err}"),
     }
+}
+
+fn run_pangolin_service<B>(
+    terminal: &mut Terminal<B>,
+    app: &mut App,
+    command: &str,
+) -> io::Result<()>
+where
+    B: Backend + io::Write,
+    io::Error: From<B::Error>,
+{
+    disable_raw_mode()?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        event::DisableMouseCapture
+    )?;
+    println!("Running pangolin {command}");
+
+    let service_status = Command::new("pangolin").arg(command).status();
+
+    restore_tui(terminal, app)?;
+
+    match service_status {
+        Ok(status) if status.success() => {
+            app.status = format!("Pangolin {command} completed");
+            refresh_all(app);
+        }
+        Ok(status) => app.status = format!("Pangolin {command} failed: {status}"),
+        Err(err) => app.status = format!("Pangolin {command} unavailable: {err}"),
+    }
+
+    Ok(())
 }
 
 fn select_active_account(app: &mut App) {
