@@ -3,7 +3,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
+    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
 };
 
 use crate::app::App;
@@ -28,8 +28,36 @@ pub fn ui(f: &mut Frame, app: &App) {
         ])
         .split(area);
 
-    let top = Paragraph::new(app.dash.clone())
+    let mut top_lines = app.dash.clone();
+    if let Some(update_banner) = &app.update_banner {
+        top_lines.push(Line::from("·"));
+        top_lines.push(Line::from(Span::styled(
+            update_banner.clone(),
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        )));
+    }
+    top_lines.extend([
+        Line::from("·"),
+        Line::from(vec![Span::styled(
+            app.auth_status.clone(),
+            Style::default()
+                .fg(status_color(&app.auth_status))
+                .add_modifier(Modifier::BOLD),
+        )]),
+        Line::from("·"),
+        Line::from(vec![Span::styled(
+            app.service_status.clone(),
+            Style::default()
+                .fg(status_color(&app.service_status))
+                .add_modifier(Modifier::BOLD),
+        )]),
+    ]);
+
+    let top = Paragraph::new(top_lines)
         .alignment(Alignment::Center)
+        .wrap(Wrap { trim: true })
         .block(Block::default().borders(Borders::ALL));
     f.render_widget(top, chunks[0]);
 
@@ -137,4 +165,15 @@ pub fn ui(f: &mut Frame, app: &App) {
     ))
     .block(Block::default().borders(Borders::ALL));
     f.render_widget(helper, chunks[4]);
+}
+
+fn status_color(status: &str) -> Color {
+    let status = status.to_lowercase();
+    if status.contains("unavailable") || status.contains("error") || status.contains("down") {
+        Color::Red
+    } else if status.contains("unknown") || status.contains("no output") {
+        Color::Yellow
+    } else {
+        Color::Green
+    }
 }

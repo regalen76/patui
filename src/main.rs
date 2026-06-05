@@ -1,4 +1,4 @@
-use std::{error::Error, io};
+use std::{error::Error, io, process::Command};
 
 use libsql::Connection;
 use ratatui::{
@@ -32,6 +32,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut terminal = Terminal::new(backend)?;
 
     let mut app = App::new();
+    refresh_pangolin_statuses(&mut app);
     refresh_known_networks(&mut app, &conn).await;
 
     let res = run_app(&mut terminal, &mut app, &conn).await;
@@ -138,12 +139,16 @@ where
                     }
                     KeyCode::Up | KeyCode::Char('k') => app.select_previous_network(),
                     KeyCode::Down | KeyCode::Char('j') => app.select_next_network(),
-                    KeyCode::Char('r') => refresh_known_networks(app, conn).await,
+                    KeyCode::Char('r') => {
+                        refresh_pangolin_statuses(app);
+                        refresh_known_networks(app, conn).await;
+                    }
                     KeyCode::Enter => {
                         if app.input.trim() == "/quit" {
                             return Ok(true);
                         }
                         if app.input.trim() == "/refetch" {
+                            refresh_pangolin_statuses(app);
                             refresh_known_networks(app, conn).await;
                         }
                         app.input.clear();
@@ -161,5 +166,73 @@ async fn refresh_known_networks(app: &mut App, conn: &Connection) {
     match db::known_networks::get_all(conn).await {
         Ok(networks) => app.refresh_networks(networks),
         Err(err) => app.status = format!("DB error: {err}"),
+    }
+}
+
+fn refresh_pangolin_statuses(app: &mut App) {
+    let auth_output = pangolin_output(["auth", "status"]);
+    let service_output = pangolin_output(["status"]);
+
+    app.update_banner = auth_output
+        .update_banner
+        .clone()
+        .or_else(|| service_output.update_banner.clone());
+    app.auth_status = auth_output.status;
+    app.service_status = service_output.status;
+}
+
+struct PangolinOutput {
+    update_banner: Option<String>,
+    status: String,
+}
+
+fn pangolin_output<const N: usize>(args: [&str; N]) -> PangolinOutput {
+    match Command::new("pangolin").args(args).output() {
+        Ok(output) if output.status.success() => parse_pangolin_output(&output.stdout),
+        Ok(output) => parse_pangolin_output(&output.stderr),
+        Err(err) => PangolinOutput {
+            update_banner: None,
+            status: format!("unavailable ({err})"),
+        },
+    }
+}
+
+fn parse_pangolin_output(bytes: &[u8]) -> PangolinOutput {
+    let output = String::from_utf8_lossy(bytes);
+    let lines = output
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>();
+    let update_banner = lines
+        .iter()
+        .find(|line| line.starts_with("A new version is available:"))
+        .map(|line| (*line).to_string());
+    let status_lines = lines
+        .iter()
+        .filter(|line| !line.starts_with("A new version is available:"))
+        .filter(|line| !line.starts_with("Run 'pangolin update'"))
+        .filter(|line| !line.starts_with("Community Edition."))
+        .map(|line| (*line).to_string())
+        .collect::<Vec<_>>();
+
+    if let Some(status) = status_lines.iter().find(|line| line.starts_with("Status:")) {
+        let status = if let Some(host) = status_lines.iter().find(|line| line.starts_with('@')) {
+            format!("{} {}", status.trim_start_matches("Status: "), host)
+        } else {
+            status.trim_start_matches("Status: ").to_string()
+        };
+        return PangolinOutput {
+            update_banner,
+            status,
+        };
+    }
+
+    PangolinOutput {
+        update_banner,
+        status: status_lines
+            .first()
+            .cloned()
+            .unwrap_or_else(|| String::from("no output")),
     }
 }

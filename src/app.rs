@@ -6,6 +6,9 @@ use ratatui::{
 
 pub struct App {
     pub dash: Vec<Line<'static>>,
+    pub update_banner: Option<String>,
+    pub auth_status: String,
+    pub service_status: String,
     pub networks: Vec<KnownNetwork>,
     pub selected_network: Option<usize>,
     pub input: String,
@@ -19,6 +22,9 @@ impl App {
     pub fn new() -> App {
         App {
             dash: create_dashboard(),
+            update_banner: None,
+            auth_status: String::from("unknown"),
+            service_status: String::from("unknown"),
             networks: Vec::new(),
             selected_network: None,
             input: String::new(),
