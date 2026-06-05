@@ -28,20 +28,9 @@ pub fn ui(f: &mut Frame, app: &App) {
         ])
         .split(area);
 
-    let title_right = Line::from(vec![
-        Span::raw("local sqlite"),
-        Span::raw("  "),
-        Span::raw("pangolin cli"),
-    ])
-    .right_aligned();
     let top = Paragraph::new(app.dash.clone())
         .alignment(Alignment::Center)
-        .block(
-            Block::default()
-                .title_top(Line::from("P.UI").centered())
-                .title_top(title_right)
-                .borders(Borders::ALL),
-        );
+        .block(Block::default().borders(Borders::ALL));
     f.render_widget(top, chunks[0]);
 
     let output_items: Vec<ListItem> = if app.networks.is_empty() {

@@ -116,7 +116,7 @@ fn create_dashboard() -> Vec<Line<'static>> {
         )]),
         Line::from(""),
         Line::from(vec![Span::styled(
-            "Pangolin UI · local known networks",
+            " · Pangolin UI · ",
             Style::default().fg(Color::DarkGray),
         )]),
     ]
