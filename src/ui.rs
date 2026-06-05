@@ -46,6 +46,14 @@ pub fn ui(f: &mut Frame, app: &App) {
                 .fg(status_color(&app.auth_status))
                 .add_modifier(Modifier::BOLD),
         )]),
+    ]);
+    for detail in &app.auth_details {
+        top_lines.push(Line::from(Span::styled(
+            detail.clone(),
+            Style::default().fg(Color::DarkGray),
+        )));
+    }
+    top_lines.extend([
         Line::from("·"),
         Line::from(vec![Span::styled(
             app.service_status.clone(),

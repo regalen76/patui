@@ -178,12 +178,14 @@ fn refresh_pangolin_statuses(app: &mut App) {
         .clone()
         .or_else(|| service_output.update_banner.clone());
     app.auth_status = auth_output.status;
+    app.auth_details = auth_output.details;
     app.service_status = service_output.status;
 }
 
 struct PangolinOutput {
     update_banner: Option<String>,
     status: String,
+    details: Vec<String>,
 }
 
 fn pangolin_output<const N: usize>(args: [&str; N]) -> PangolinOutput {
@@ -193,6 +195,7 @@ fn pangolin_output<const N: usize>(args: [&str; N]) -> PangolinOutput {
         Err(err) => PangolinOutput {
             update_banner: None,
             status: format!("unavailable ({err})"),
+            details: Vec::new(),
         },
     }
 }
@@ -215,6 +218,13 @@ fn parse_pangolin_output(bytes: &[u8]) -> PangolinOutput {
         .filter(|line| !line.starts_with("Community Edition."))
         .map(|line| (*line).to_string())
         .collect::<Vec<_>>();
+    let details = status_lines
+        .iter()
+        .filter(|line| {
+            line.starts_with("User:") || line.starts_with("User ID:") || line.starts_with("Org ID:")
+        })
+        .cloned()
+        .collect::<Vec<_>>();
 
     if let Some(status) = status_lines.iter().find(|line| line.starts_with("Status:")) {
         let status = if let Some(host) = status_lines.iter().find(|line| line.starts_with('@')) {
@@ -225,6 +235,7 @@ fn parse_pangolin_output(bytes: &[u8]) -> PangolinOutput {
         return PangolinOutput {
             update_banner,
             status,
+            details,
         };
     }
 
@@ -234,5 +245,6 @@ fn parse_pangolin_output(bytes: &[u8]) -> PangolinOutput {
             .first()
             .cloned()
             .unwrap_or_else(|| String::from("no output")),
+        details,
     }
 }
