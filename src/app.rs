@@ -98,44 +98,44 @@ fn create_dashboard() -> Vec<Line<'static>> {
     vec![
         Line::from(""),
         Line::from(vec![Span::styled(
-            "██████╗     ██╗   ██╗██╗",
+            "██████╗     ████████╗██╗   ██╗██╗",
             Style::default()
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         )]),
         Line::from(vec![Span::styled(
-            "██╔══██╗    ██║   ██║██║",
+            "██╔══██╗    ╚══██╔══╝██║   ██║██║",
             Style::default()
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         )]),
         Line::from(vec![Span::styled(
-            "██████╔╝    ██║   ██║██║",
+            "██████╔╝       ██║   ██║   ██║██║",
             Style::default()
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         )]),
         Line::from(vec![Span::styled(
-            "██╔═══╝     ██║   ██║██║",
+            "██╔═══╝        ██║   ██║   ██║██║",
             Style::default()
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         )]),
         Line::from(vec![Span::styled(
-            "██║      ██╗╚██████╔╝██║",
+            "██║      ██╗   ██║   ╚██████╔╝██║",
             Style::default()
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         )]),
         Line::from(vec![Span::styled(
-            "╚═╝      ╚═╝ ╚═════╝ ╚═╝",
+            "╚═╝      ╚═╝   ╚═╝    ╚═════╝ ╚═╝",
             Style::default()
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         )]),
         Line::from(""),
         Line::from(vec![Span::styled(
-            " · Pangolin UI · ",
+            " · Pangolin TUI · ",
             Style::default().fg(Color::DarkGray),
         )]),
     ]
