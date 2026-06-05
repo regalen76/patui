@@ -69,24 +69,30 @@ pub fn ui(f: &mut Frame, app: &App) {
         .block(Block::default().borders(Borders::ALL));
     f.render_widget(top, chunks[0]);
 
-    let output_items: Vec<ListItem> = if app.networks.is_empty() {
+    let output_items: Vec<ListItem> = if app.accounts.is_empty() {
         vec![ListItem::new(Line::from(Span::styled(
-            " no known networks found",
+            " no Pangolin accounts found · use /login https://your-instance.example.com",
             Style::default().fg(Color::DarkGray),
         )))]
     } else {
-        app.networks
+        app.accounts
             .iter()
-            .flat_map(|network| {
+            .flat_map(|account| {
+                let marker = if account.active { "*" } else { " " };
+                let label = if account.email.is_empty() {
+                    account.user_id.clone()
+                } else {
+                    account.email.clone()
+                };
                 [
                     ListItem::new(Line::from(Span::styled(
-                        format!("  {}", network.name),
+                        format!(" {marker} {label}"),
                         Style::default()
                             .fg(Color::White)
                             .add_modifier(Modifier::BOLD),
                     ))),
                     ListItem::new(Line::from(Span::styled(
-                        format!("  {}", network.host),
+                        format!("   {} · {}", account.host, account.org_id),
                         Style::default().fg(Color::DarkGray),
                     ))),
                     ListItem::new(Line::from("")),
@@ -98,7 +104,7 @@ pub fn ui(f: &mut Frame, app: &App) {
     let output = List::new(output_items)
         .block(
             Block::default()
-                .title_top(Line::from("known_networks").centered())
+                .title_top(Line::from("pangolin_accounts").centered())
                 .borders(Borders::ALL),
         )
         .highlight_style(
@@ -108,7 +114,7 @@ pub fn ui(f: &mut Frame, app: &App) {
                 .add_modifier(Modifier::BOLD),
         );
     let mut output_state = ListState::default();
-    output_state.select(app.selected_network.map(|i| i * 3));
+    output_state.select(app.selected_account.map(|i| i * 3));
     f.render_stateful_widget(output, chunks[1], &mut output_state);
 
     let input_widget = Paragraph::new(app.input.clone())
@@ -168,7 +174,7 @@ pub fn ui(f: &mut Frame, app: &App) {
     }
 
     let helper = Paragraph::new(format!(
-        "j/k select · r refetch · / command · Ctrl-c quit · {}",
+        "j/k select · r refetch · /login <host> · /select-account · Ctrl-c quit · {}",
         app.status
     ))
     .block(Block::default().borders(Borders::ALL));

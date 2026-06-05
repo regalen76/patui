@@ -1,6 +1,5 @@
 use std::{error::Error, io, process::Command};
 
-use libsql::Connection;
 use ratatui::{
     Terminal,
     crossterm::{
@@ -14,15 +13,11 @@ use ratatui::{
 use crate::{app::App, ui::ui};
 
 mod app;
-mod db;
+mod pangolin_accounts;
 mod ui;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let database = db::open_database().await?;
-    let conn = database.connect()?;
-    db::migrate(&conn).await?;
-
     enable_raw_mode()?;
 
     let mut stderr = io::stderr();
@@ -33,9 +28,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut app = App::new();
     refresh_pangolin_statuses(&mut app);
-    refresh_known_networks(&mut app, &conn).await;
+    refresh_pangolin_accounts(&mut app);
 
-    let res = run_app(&mut terminal, &mut app, &conn).await;
+    let res = run_app(&mut terminal, &mut app);
 
     disable_raw_mode()?;
     execute!(
@@ -52,13 +47,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-async fn run_app<B>(
-    terminal: &mut Terminal<B>,
-    app: &mut App,
-    conn: &Connection,
-) -> io::Result<bool>
+fn run_app<B>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<bool>
 where
-    B: Backend,
+    B: Backend + io::Write,
     io::Error: From<B::Error>,
 {
     loop {
@@ -137,19 +128,19 @@ where
                             app.suggestion_index = None;
                         }
                     }
-                    KeyCode::Up | KeyCode::Char('k') => app.select_previous_network(),
-                    KeyCode::Down | KeyCode::Char('j') => app.select_next_network(),
-                    KeyCode::Char('r') => {
-                        refresh_pangolin_statuses(app);
-                        refresh_known_networks(app, conn).await;
-                    }
+                    KeyCode::Up | KeyCode::Char('k') => app.select_previous_account(),
+                    KeyCode::Down | KeyCode::Char('j') => app.select_next_account(),
+                    KeyCode::Char('r') => refresh_all(app),
                     KeyCode::Enter => {
-                        if app.input.trim() == "/quit" {
+                        let input = app.input.trim().to_string();
+                        if input == "/quit" {
                             return Ok(true);
-                        }
-                        if app.input.trim() == "/refetch" {
-                            refresh_pangolin_statuses(app);
-                            refresh_known_networks(app, conn).await;
+                        } else if input == "/refetch" {
+                            refresh_all(app);
+                        } else if let Some(host) = input.strip_prefix("/login ") {
+                            run_pangolin_login(terminal, app, host.trim())?;
+                        } else if input == "/select-account" {
+                            select_active_account(app);
                         }
                         app.input.clear();
                         app.show_suggestions = false;
@@ -162,10 +153,87 @@ where
     }
 }
 
-async fn refresh_known_networks(app: &mut App, conn: &Connection) {
-    match db::known_networks::get_all(conn).await {
-        Ok(networks) => app.refresh_networks(networks),
-        Err(err) => app.status = format!("DB error: {err}"),
+fn refresh_all(app: &mut App) {
+    refresh_pangolin_statuses(app);
+    refresh_pangolin_accounts(app);
+}
+
+fn refresh_pangolin_accounts(app: &mut App) {
+    match pangolin_accounts::load_accounts() {
+        Ok(accounts) => app.refresh_accounts(accounts),
+        Err(err) => app.status = format!("Pangolin accounts error: {err}"),
+    }
+}
+
+fn run_pangolin_login<B>(terminal: &mut Terminal<B>, app: &mut App, host: &str) -> io::Result<()>
+where
+    B: Backend + io::Write,
+    io::Error: From<B::Error>,
+{
+    if host.is_empty() {
+        app.status = String::from("Usage: /login https://your-instance.example.com");
+        return Ok(());
+    }
+
+    disable_raw_mode()?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        event::DisableMouseCapture
+    )?;
+    println!("Running pangolin login {host}");
+
+    let login_status = Command::new("pangolin").args(["login", host]).status();
+
+    enable_raw_mode()?;
+    execute!(
+        terminal.backend_mut(),
+        EnterAlternateScreen,
+        event::EnableMouseCapture
+    )?;
+
+    match login_status {
+        Ok(status) if status.success() => {
+            app.status = String::from("Pangolin login completed");
+            refresh_all(app);
+        }
+        Ok(status) => app.status = format!("Pangolin login failed: {status}"),
+        Err(err) => app.status = format!("Pangolin login unavailable: {err}"),
+    }
+
+    Ok(())
+}
+
+fn select_active_account(app: &mut App) {
+    let Some(index) = app.selected_account else {
+        app.status = String::from("No Pangolin account selected");
+        return;
+    };
+    let Some(account) = app.accounts.get(index) else {
+        app.status = String::from("No Pangolin account selected");
+        return;
+    };
+
+    match Command::new("pangolin")
+        .args([
+            "select",
+            "account",
+            "--account",
+            &account.email,
+            "--host",
+            &account.host,
+        ])
+        .output()
+    {
+        Ok(output) if output.status.success() => {
+            app.status = format!("Selected {} @ {}", account.email, account.host);
+            refresh_all(app);
+        }
+        Ok(output) => {
+            let message = parse_command_message(&output.stderr, &output.stdout);
+            app.status = format!("Select account failed: {message}");
+        }
+        Err(err) => app.status = format!("Select account unavailable: {err}"),
     }
 }
 
@@ -262,4 +330,16 @@ fn parse_pangolin_output(bytes: &[u8]) -> PangolinOutput {
             .unwrap_or_else(|| String::from("no output")),
         details,
     }
+}
+
+fn parse_command_message(stderr: &[u8], stdout: &[u8]) -> String {
+    let stderr = String::from_utf8_lossy(stderr);
+    let stdout = String::from_utf8_lossy(stdout);
+    stderr
+        .lines()
+        .chain(stdout.lines())
+        .map(str::trim)
+        .find(|line| !line.is_empty())
+        .unwrap_or("no output")
+        .to_string()
 }

@@ -1,4 +1,4 @@
-use crate::db::known_networks::KnownNetwork;
+use crate::pangolin_accounts::PangolinAccount;
 use ratatui::{
     style::{Color, Modifier, Style},
     text::{Line, Span},
@@ -10,8 +10,8 @@ pub struct App {
     pub auth_status: String,
     pub auth_details: Vec<String>,
     pub service_status: String,
-    pub networks: Vec<KnownNetwork>,
-    pub selected_network: Option<usize>,
+    pub accounts: Vec<PangolinAccount>,
+    pub selected_account: Option<usize>,
     pub input: String,
     pub suggestions: Vec<(&'static str, &'static str)>,
     pub suggestion_index: Option<usize>,
@@ -27,13 +27,14 @@ impl App {
             auth_status: String::from("unknown"),
             auth_details: Vec::new(),
             service_status: String::from("unknown"),
-            networks: Vec::new(),
-            selected_network: None,
+            accounts: Vec::new(),
+            selected_account: None,
             input: String::new(),
             suggestions: vec![
                 ("/quit", "exit the application"),
-                ("/refetch", "refresh known networks"),
-                ("/connect", "connect to selected Pangolin network"),
+                ("/refetch", "refresh Pangolin statuses and accounts"),
+                ("/login", "login to self-hosted Pangolin host"),
+                ("/select-account", "select highlighted Pangolin account"),
                 ("/help", "show help"),
                 ("/clear", "clear output"),
             ],
@@ -51,32 +52,32 @@ impl App {
             .collect()
     }
 
-    pub fn refresh_networks(&mut self, networks: Vec<KnownNetwork>) {
-        self.networks = networks;
-        self.selected_network = if self.networks.is_empty() {
+    pub fn refresh_accounts(&mut self, accounts: Vec<PangolinAccount>) {
+        self.accounts = accounts;
+        self.selected_account = if self.accounts.is_empty() {
             None
         } else {
             Some(
-                self.selected_network
+                self.selected_account
                     .unwrap_or(0)
-                    .min(self.networks.len() - 1),
+                    .min(self.accounts.len() - 1),
             )
         };
-        self.status = format!("{} known networks", self.networks.len());
+        self.status = format!("{} Pangolin accounts", self.accounts.len());
     }
 
-    pub fn select_next_network(&mut self) {
-        let len = self.networks.len();
+    pub fn select_next_account(&mut self) {
+        let len = self.accounts.len();
         if len > 0 {
-            self.selected_network = Some(self.selected_network.map_or(0, |i| (i + 1) % len));
+            self.selected_account = Some(self.selected_account.map_or(0, |i| (i + 1) % len));
         }
     }
 
-    pub fn select_previous_network(&mut self) {
-        let len = self.networks.len();
+    pub fn select_previous_account(&mut self) {
+        let len = self.accounts.len();
         if len > 0 {
-            self.selected_network = Some(
-                self.selected_network
+            self.selected_account = Some(
+                self.selected_account
                     .map_or(0, |i| if i == 0 { len - 1 } else { i - 1 }),
             );
         }
