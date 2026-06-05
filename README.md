@@ -7,16 +7,16 @@ A terminal UI for managing Pangolin VPN accounts and connections.
 - [Rust](https://rustup.rs/) 1.85+ (2024 edition)
 - [Pangolin CLI](https://docs.pangolin.network/) installed and on `PATH`
 
-## Build
+## Install
 
 ```bash
-cargo build --release
+cargo install patui
 ```
 
 ## Run
 
 ```bash
-cargo run
+patui
 ```
 
 ## Features
