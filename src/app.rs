@@ -41,6 +41,7 @@ impl App {
                 ("/quit", "exit the application"),
                 ("/refetch", "refresh Pangolin statuses and accounts"),
                 ("/login", "open Pangolin login chooser"),
+                ("/logout", "logout active Pangolin account"),
                 ("/help", "show help"),
                 ("/clear", "clear output"),
             ],

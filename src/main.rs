@@ -192,6 +192,8 @@ where
         refresh_all(app);
     } else if input == "/login" {
         app.login_popup = LoginPopup::Hosting { selected: 0 };
+    } else if input == "/logout" {
+        run_pangolin_logout(app);
     } else if let Some(host) = input.strip_prefix("/login ") {
         run_pangolin_login(terminal, app, host.trim())?;
     }
@@ -312,6 +314,25 @@ where
     }
 
     Ok(())
+}
+
+fn run_pangolin_logout(app: &mut App) {
+    match Command::new("pangolin").arg("logout").output() {
+        Ok(output) if output.status.success() => {
+            let message = parse_command_message(&output.stdout, &output.stderr);
+            app.status = if message.is_empty() {
+                String::from("Pangolin logout completed")
+            } else {
+                message
+            };
+            refresh_all(app);
+        }
+        Ok(output) => {
+            let message = parse_command_message(&output.stderr, &output.stdout);
+            app.status = format!("Pangolin logout failed: {message}");
+        }
+        Err(err) => app.status = format!("Pangolin logout unavailable: {err}"),
+    }
 }
 
 fn select_active_account(app: &mut App) {

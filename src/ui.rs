@@ -174,7 +174,7 @@ pub fn ui(f: &mut Frame, app: &App) {
     }
 
     let helper = Paragraph::new(format!(
-        "j/k/↑/↓ move · Enter/l select · r refetch · / commands · Ctrl-c quit · {}",
+        "j/k/↑/↓ move · Enter/l select · r refetch · /login · /logout · Ctrl-c quit · {}",
         app.status
     ))
     .block(Block::default().borders(Borders::ALL));
