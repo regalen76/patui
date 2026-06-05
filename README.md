@@ -1,4 +1,4 @@
-# PTUI
+# PATUI
 
 A terminal UI for managing Pangolin VPN accounts and connections.
 
