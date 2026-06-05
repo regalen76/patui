@@ -45,8 +45,6 @@ impl App {
                 ("/logout", "logout active Pangolin account"),
                 ("/up", "start Pangolin connection"),
                 ("/down", "stop Pangolin connection"),
-                ("/help", "show help"),
-                ("/clear", "clear output"),
             ],
             suggestion_index: None,
             show_suggestions: false,
