@@ -76,8 +76,9 @@ where
 
                 if app.show_suggestions {
                     match key.code {
-                        KeyCode::Down | KeyCode::Char('n')
-                            if key.modifiers == KeyModifiers::CONTROL =>
+                        KeyCode::Down | KeyCode::Char('j') | KeyCode::Char('n')
+                            if key.modifiers == KeyModifiers::NONE
+                                || key.modifiers == KeyModifiers::CONTROL =>
                         {
                             let len = app.filtered_suggestions().len();
                             if len > 0 {
@@ -86,8 +87,9 @@ where
                             }
                             continue;
                         }
-                        KeyCode::Up | KeyCode::Char('p')
-                            if key.modifiers == KeyModifiers::CONTROL =>
+                        KeyCode::Up | KeyCode::Char('k') | KeyCode::Char('p')
+                            if key.modifiers == KeyModifiers::NONE
+                                || key.modifiers == KeyModifiers::CONTROL =>
                         {
                             let len = app.filtered_suggestions().len();
                             if len > 0 {
@@ -98,12 +100,31 @@ where
                             }
                             continue;
                         }
-                        KeyCode::Tab | KeyCode::Enter => {
+                        KeyCode::Tab => {
                             if let Some(idx) = app.suggestion_index {
                                 if let Some((cmd, _)) = app.filtered_suggestions().get(idx) {
                                     app.input = cmd.to_string();
                                 }
                             }
+                            app.show_suggestions = false;
+                            app.suggestion_index = None;
+                            continue;
+                        }
+                        KeyCode::Enter => {
+                            if let Some(idx) = app.suggestion_index {
+                                if let Some((cmd, _)) = app.filtered_suggestions().get(idx) {
+                                    app.input = cmd.to_string();
+                                }
+                            }
+                            app.show_suggestions = false;
+                            app.suggestion_index = None;
+                            if execute_command(terminal, app)? {
+                                return Ok(true);
+                            }
+                            continue;
+                        }
+                        KeyCode::Esc => {
+                            app.input.clear();
                             app.show_suggestions = false;
                             app.suggestion_index = None;
                             continue;
@@ -119,7 +140,8 @@ where
                         app.suggestion_index = Some(0);
                     }
                     KeyCode::Char(value)
-                        if key.modifiers.difference(KeyModifiers::SHIFT).is_empty() =>
+                        if app.input.starts_with('/')
+                            && key.modifiers.difference(KeyModifiers::SHIFT).is_empty() =>
                     {
                         app.input.push(value);
                         if app.input.starts_with('/') {
@@ -128,7 +150,7 @@ where
                             app.suggestion_index = if filtered.is_empty() { None } else { Some(0) };
                         }
                     }
-                    KeyCode::Backspace => {
+                    KeyCode::Backspace if app.input.starts_with('/') => {
                         app.input.pop();
                         if app.input.starts_with('/') {
                             let filtered = app.filtered_suggestions();
@@ -142,28 +164,43 @@ where
                     KeyCode::Up | KeyCode::Char('k') => app.select_previous_account(),
                     KeyCode::Down | KeyCode::Char('j') => app.select_next_account(),
                     KeyCode::Char('r') => refresh_all(app),
-                    KeyCode::Enter => {
-                        let input = app.input.trim().to_string();
-                        if input == "/quit" {
+                    KeyCode::Char('l') => select_active_account(app),
+                    KeyCode::Enter if app.input.starts_with('/') => {
+                        if execute_command(terminal, app)? {
                             return Ok(true);
-                        } else if input == "/refetch" {
-                            refresh_all(app);
-                        } else if input == "/login" {
-                            app.login_popup = LoginPopup::Hosting { selected: 0 };
-                        } else if let Some(host) = input.strip_prefix("/login ") {
-                            run_pangolin_login(terminal, app, host.trim())?;
-                        } else if input == "/select-account" {
-                            select_active_account(app);
                         }
-                        app.input.clear();
-                        app.show_suggestions = false;
-                        app.suggestion_index = None;
                     }
+                    KeyCode::Enter => select_active_account(app),
                     _ => {}
                 }
             }
         }
     }
+}
+
+fn execute_command<B>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<bool>
+where
+    B: Backend + io::Write,
+    io::Error: From<B::Error>,
+{
+    let input = app.input.trim().to_string();
+    let mut should_quit = false;
+
+    if input == "/quit" {
+        should_quit = true;
+    } else if input == "/refetch" {
+        refresh_all(app);
+    } else if input == "/login" {
+        app.login_popup = LoginPopup::Hosting { selected: 0 };
+    } else if let Some(host) = input.strip_prefix("/login ") {
+        run_pangolin_login(terminal, app, host.trim())?;
+    }
+
+    app.input.clear();
+    app.show_suggestions = false;
+    app.suggestion_index = None;
+
+    Ok(should_quit)
 }
 
 fn handle_login_popup_key<B>(
