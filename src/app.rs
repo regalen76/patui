@@ -17,6 +17,7 @@ pub struct App {
     pub suggestion_index: Option<usize>,
     pub show_suggestions: bool,
     pub login_popup: LoginPopup,
+    pub connecting_popup: Option<String>,
     pub status: String,
 }
 
@@ -50,6 +51,7 @@ impl App {
             suggestion_index: None,
             show_suggestions: false,
             login_popup: LoginPopup::Hidden,
+            connecting_popup: None,
             status: String::from("Pangolin CLI required"),
         }
     }

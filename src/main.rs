@@ -175,13 +175,21 @@ where
                     KeyCode::Up | KeyCode::Char('k') => app.select_previous_account(),
                     KeyCode::Down | KeyCode::Char('j') => app.select_next_account(),
                     KeyCode::Char('r') => refresh_all(app),
-                    KeyCode::Char('l') => select_active_account(app),
+                    KeyCode::Char('l') => {
+                        app.connecting_popup = Some(String::from("Connecting..."));
+                        terminal.draw(|f| ui(f, app))?;
+                        select_active_account(app);
+                    }
                     KeyCode::Enter if app.input.starts_with('/') => {
                         if execute_command(terminal, app)? {
                             return Ok(true);
                         }
                     }
-                    KeyCode::Enter => select_active_account(app),
+                    KeyCode::Enter => {
+                        app.connecting_popup = Some(String::from("Connecting..."));
+                        terminal.draw(|f| ui(f, app))?;
+                        select_active_account(app);
+                    }
                     _ => {}
                 }
             }
@@ -278,6 +286,7 @@ where
 fn refresh_all(app: &mut App) {
     refresh_pangolin_statuses(app);
     refresh_pangolin_accounts(app);
+    app.connecting_popup = None;
 }
 
 fn refresh_pangolin_accounts(app: &mut App) {
@@ -395,10 +404,12 @@ where
 
 fn select_active_account(app: &mut App) {
     let Some(index) = app.selected_account else {
+        app.connecting_popup = None;
         app.status = String::from("No Pangolin account selected");
         return;
     };
     let Some(account) = app.accounts.get(index) else {
+        app.connecting_popup = None;
         app.status = String::from("No Pangolin account selected");
         return;
     };
@@ -419,10 +430,14 @@ fn select_active_account(app: &mut App) {
             refresh_all(app);
         }
         Ok(output) => {
+            app.connecting_popup = None;
             let message = parse_command_message(&output.stderr, &output.stdout);
             app.status = format!("Select account failed: {message}");
         }
-        Err(err) => app.status = format!("Select account unavailable: {err}"),
+        Err(err) => {
+            app.connecting_popup = None;
+            app.status = format!("Select account unavailable: {err}");
+        }
     }
 }
 

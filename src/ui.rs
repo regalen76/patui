@@ -181,6 +181,7 @@ pub fn ui(f: &mut Frame, app: &App) {
     f.render_widget(helper, chunks[4]);
 
     render_login_popup(f, app, area);
+    render_connecting_popup(f, app, area);
 }
 
 fn render_login_popup(f: &mut Frame, app: &App, area: Rect) {
@@ -265,6 +266,31 @@ fn centered_rect(area: Rect, width_percent: u16, height: u16) -> Rect {
         width,
         height: height.min(area.height),
     }
+}
+
+fn render_connecting_popup(f: &mut Frame, app: &App, area: Rect) {
+    let Some(message) = &app.connecting_popup else {
+        return;
+    };
+    let popup = centered_rect(area, 40, 5);
+    f.render_widget(Clear, popup);
+
+    let content = vec![
+        Line::from(""),
+        Line::from(vec![Span::styled(
+            message.clone(),
+            Style::default()
+                .fg(Color::Green)
+                .add_modifier(Modifier::BOLD),
+        )]),
+        Line::from(""),
+    ];
+    let paragraph = Paragraph::new(content).alignment(Alignment::Center).block(
+        Block::default()
+            .title_top(Line::from("connecting").centered())
+            .borders(Borders::ALL),
+    );
+    f.render_widget(paragraph, popup);
 }
 
 fn status_color(status: &str) -> Color {
