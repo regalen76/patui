@@ -6,10 +6,10 @@ Thanks for helping. Focused, easy-to-review contributions move fastest.
 
 PATUI has two branches:
 
-- **`dev`** — where all PRs land. Things can be in flux here.
-- **`stable`** — what users run. Curated by the maintainer. Fast-forwarded from a stable `dev` commit at each release.
+- **`master`** — where all PRs land. Things can be in flux here.
+- **`stable`** — what users run. Curated by the maintainer. Fast-forwarded from a stable `master` commit at each release.
 
-**Open your PR against `dev`, not `stable`.**
+**Open your PR against `master`, not `stable`.**
 
 ## Before You Start
 
