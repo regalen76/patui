@@ -51,6 +51,16 @@ patui
 | `/up`      | Start Pangolin connection                 |
 | `/down`    | Stop Pangolin connection                  |
 
+## Contributing
+
+PRs welcome. Open an issue first for big changes.
+
+```bash
+git clone https://github.com/regalen76/patui
+cd patui
+cargo run
+```
+
 ## License
 
 MIT
