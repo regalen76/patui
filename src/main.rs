@@ -515,11 +515,16 @@ fn parse_pangolin_output(bytes: &[u8]) -> PangolinOutput {
     PangolinOutput {
         update_banner,
         status: status_lines
-            .first()
+            .iter()
+            .find(|line| !is_pangolin_table_header(line))
             .cloned()
             .unwrap_or_else(|| String::from("no output")),
         details,
     }
+}
+
+fn is_pangolin_table_header(line: &str) -> bool {
+    line.starts_with("AGENT") || line.starts_with("SITE")
 }
 
 fn parse_command_message(stderr: &[u8], stdout: &[u8]) -> String {
