@@ -137,7 +137,7 @@ fn create_dashboard() -> Vec<Line<'static>> {
         )]),
         Line::from(""),
         Line::from(vec![Span::styled(
-            " · Pangolin TUI · ",
+            " · PA.TUI · ",
             Style::default().fg(Color::DarkGray),
         )]),
     ]
