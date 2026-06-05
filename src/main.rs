@@ -170,6 +170,17 @@ async fn refresh_known_networks(app: &mut App, conn: &Connection) {
 }
 
 fn refresh_pangolin_statuses(app: &mut App) {
+    if !pangolin_cli_available() {
+        app.update_banner = None;
+        app.auth_status = String::from("Pangolin CLI not found in PATH");
+        app.auth_details = vec![String::from(
+            "Install Pangolin CLI and ensure `pangolin` is on PATH",
+        )];
+        app.service_status = String::from("Pangolin features unavailable");
+        app.status = String::from("Pangolin CLI required");
+        return;
+    }
+
     let auth_output = pangolin_output(["auth", "status"]);
     let service_output = pangolin_output(["status"]);
 
@@ -180,6 +191,10 @@ fn refresh_pangolin_statuses(app: &mut App) {
     app.auth_status = auth_output.status;
     app.auth_details = auth_output.details;
     app.service_status = service_output.status;
+}
+
+fn pangolin_cli_available() -> bool {
+    Command::new("pangolin").arg("--version").output().is_ok()
 }
 
 struct PangolinOutput {
