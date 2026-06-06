@@ -176,7 +176,7 @@ where
                     KeyCode::Down | KeyCode::Char('j') => app.select_next_account(),
                     KeyCode::Char('r') => refresh_all(app),
                     KeyCode::Char('l') => {
-                        app.connecting_popup = Some(String::from("Connecting..."));
+                        app.connecting_popup = Some(String::from("Please wait..."));
                         terminal.draw(|f| ui(f, app))?;
                         select_active_account(app);
                     }
@@ -186,7 +186,7 @@ where
                         }
                     }
                     KeyCode::Enter => {
-                        app.connecting_popup = Some(String::from("Connecting..."));
+                        app.connecting_popup = Some(String::from("Please wait..."));
                         terminal.draw(|f| ui(f, app))?;
                         select_active_account(app);
                     }
@@ -371,6 +371,7 @@ where
 }
 
 fn run_pangolin_logout(app: &mut App) {
+    app.connecting_popup = Some(String::from("Please wait..."));
     match Command::new("pangolin").arg("logout").output() {
         Ok(output) if output.status.success() => {
             let message = parse_command_message(&output.stdout, &output.stderr);
@@ -379,13 +380,18 @@ fn run_pangolin_logout(app: &mut App) {
             } else {
                 message
             };
+            app.connecting_popup = None;
             refresh_all(app);
         }
         Ok(output) => {
+            app.connecting_popup = None;
             let message = parse_command_message(&output.stderr, &output.stdout);
             app.status = format!("Pangolin logout failed: {message}");
         }
-        Err(err) => app.status = format!("Pangolin logout unavailable: {err}"),
+        Err(err) => {
+            app.connecting_popup = None;
+            app.status = format!("Pangolin logout unavailable: {err}");
+        }
     }
 }
 
