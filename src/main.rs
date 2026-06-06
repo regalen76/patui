@@ -212,7 +212,11 @@ where
     } else if input == "/login" {
         app.login_popup = LoginPopup::Hosting { selected: 0 };
     } else if input == "/logout" {
-        run_pangolin_logout(app);
+        if app.service_status.contains("Connected") {
+            app.login_popup = LoginPopup::LogoutConfirm { selected: 0 };
+        } else {
+            run_pangolin_logout(app);
+        }
     } else if input == "/up" {
         run_pangolin_service(terminal, app, "up")?;
     } else if input == "/down" {
@@ -274,6 +278,22 @@ where
             }
             _ => {}
         },
+        LoginPopup::LogoutConfirm { selected } => {
+            let do_logout = *selected == 0;
+            match code {
+                KeyCode::Esc => app.login_popup = LoginPopup::Hidden,
+                KeyCode::Left | KeyCode::Char('h') => *selected = 0,
+                KeyCode::Right | KeyCode::Char('l') => *selected = 1,
+                KeyCode::Enter => {
+                    app.login_popup = LoginPopup::Hidden;
+                    if do_logout {
+                        run_pangolin_service(terminal, app, "down")?;
+                        run_pangolin_logout(app);
+                    }
+                }
+                _ => {}
+            }
+        }
     }
 
     if let Some(host) = login_host {

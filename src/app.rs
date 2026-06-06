@@ -25,6 +25,7 @@ pub enum LoginPopup {
     Hidden,
     Hosting { selected: usize },
     SelfHosted { host: String },
+    LogoutConfirm { selected: usize },
 }
 
 impl App {

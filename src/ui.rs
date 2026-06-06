@@ -252,6 +252,42 @@ fn render_login_popup(f: &mut Frame, app: &App, area: Rect) {
             f.render_widget(paragraph, popup);
             f.set_cursor_position((popup.x + 11 + host.len() as u16, popup.y + 2));
         }
+        LoginPopup::LogoutConfirm { selected } => {
+            let popup = centered_rect(area, 62, 9);
+            f.render_widget(Clear, popup);
+
+            let yes_style = if *selected == 0 {
+                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::White)
+            };
+            let no_style = if *selected == 1 {
+                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::White)
+            };
+
+            let content = vec![
+                Line::from(""),
+                Line::from("A client is currently running. Logging out will disconnect it."),
+                Line::from("Do you want to continue?"),
+                Line::from(""),
+                Line::from(vec![
+                    Span::styled("  ", Style::default()),
+                    Span::styled(if *selected == 0 { "▸ Yes ◂" } else { "  Yes  " }, yes_style),
+                    Span::styled("          ", Style::default()),
+                    Span::styled(if *selected == 1 { "▸ No ◂" } else { "  No   " }, no_style),
+                    Span::styled("  ", Style::default()),
+                ]),
+            ];
+            let paragraph = Paragraph::new(content).alignment(Alignment::Center).block(
+                Block::default()
+                    .title_top(Line::from("logout confirmation").centered())
+                    .title_bottom(Line::from("Enter choose · Esc cancel · ←/→ or h/l move").centered())
+                    .borders(Borders::ALL),
+            );
+            f.render_widget(paragraph, popup);
+        }
     }
 }
 
